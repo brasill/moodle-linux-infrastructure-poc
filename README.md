@@ -34,8 +34,8 @@ A infraestrutura foi construída manualmente com foco em:
 O objetivo é validar a viabilidade da plataforma
 para uso educacional e futura patente da metodologia pedagógica.
 
-A metodologia educacional foi criada pelo pesquisador **Amauri** e utiliza
-uma estrutura inovadora baseada em **blocos linguísticos** para ensino.
+A metodologia educacional foi criada pelo pesquisador **Amauri Viana Fuzaro** e utiliza
+uma estrutura inovadora de ensino.
 
 Essa metodologia está em processo de **registro e patenteamento** e,
 portanto, **não é publicada neste repositório**.
