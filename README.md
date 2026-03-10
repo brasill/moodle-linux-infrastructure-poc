@@ -136,7 +136,7 @@ sudo dnf update -y
 sudo timedatectl set-timezone America/Sao_Paulo
 ```
 
-> 📌 **Conexão via PuTTY com NAT no VirtualBox:** use `127.0.0.1` na porta `2222` (não o IP interno `10.0.2.15`). O VirtualBox redireciona a porta do Windows para dentro da VM.
+> 📌 **Conexão via PuTTY com NAT no VirtualBox:** use o endereço do hospedeiro (`localhost`) na porta configurada para SSH (não o IP interno da VM). O VirtualBox redireciona a porta do Windows para dentro da VM.
 
 ---
 
@@ -200,14 +200,12 @@ Dentro do prompt `postgres=#`:
 
 ```sql
 CREATE DATABASE moodle;
-CREATE USER moodleuser WITH PASSWORD 'SuaSenhaSeguraAqui';
+CREATE USER moodleuser WITH PASSWORD '<DATABASE_PASSWORD>';
 GRANT ALL PRIVILEGES ON DATABASE moodle TO moodleuser;
 GRANT ALL ON SCHEMA public TO moodleuser;
 \q
 ```
 
-> ⚠️ Troque `SuaSenhaSeguraAqui` por uma credencial robusta antes de executar.
->
 > 📌 O `GRANT ALL ON SCHEMA public` é necessário a partir do PostgreSQL 15+, que protege o esquema `public` por padrão como medida de hardening. Sem esse comando, o Moodle falha ao criar suas tabelas com `ERRO: permissão negada para esquema public`.
 
 ---
@@ -368,16 +366,16 @@ Vá em **Configurações → Rede → Avançado → Redirecionamento de Portas**
 
 | Nome | Protocolo | IP Hospedeiro | Porta Hospedeiro | Porta Convidado |
 |---|---|---|---|---|
-| SSH | TCP | 127.0.0.1 | 2222 | 22 |
-| HTTP | TCP | 127.0.0.1 | 8080 | 80 |
+| SSH | TCP | localhost | 2222 | 22 |
+| HTTP | TCP | localhost | 8080 | 80 |
 
-Após configurar, acesse no navegador do Windows: `http://127.0.0.1:8080`
+Após configurar, acesse no navegador do Windows pelo endereço `localhost` na porta `8080`.
 
 ---
 
 ### 12. Assistente de Instalação Visual do Moodle
 
-Abra `http://127.0.0.1:8080` no navegador. O assistente pedirá:
+Abra `localhost:8080` no navegador. O assistente pedirá:
 
 | Campo | Valor |
 |---|---|
@@ -385,7 +383,7 @@ Abra `http://127.0.0.1:8080` no navegador. O assistente pedirá:
 | Diretório Moodle | `/var/www/html/moodle` |
 | Diretório de Dados | `/var/moodledata` ← remova o `/www/html` sugerido |
 | Driver do Banco | PostgreSQL (pgsql) |
-| Servidor do banco | `localhost` ou `127.0.0.1` |
+| Servidor do banco | `localhost` |
 | Nome do banco | `moodle` |
 | Usuário do banco | `moodleuser` |
 | Senha | *(senha real — sem as aspas simples)* |
@@ -419,7 +417,7 @@ $CFG->dblibrary = 'native';
 $CFG->dbhost    = 'localhost';
 $CFG->dbname    = 'moodle';
 $CFG->dbuser    = 'moodleuser';
-$CFG->dbpass    = 'SuaSenhaSeguraAqui';
+$CFG->dbpass    = '<DATABASE_PASSWORD>';
 $CFG->prefix    = 'mdl_';
 $CFG->dboptions = array (
   'dbpersist' => 0,
@@ -427,7 +425,7 @@ $CFG->dboptions = array (
   'dbsocket' => '',
 );
 
-$CFG->wwwroot   = 'http://127.0.0.1:8080';
+$CFG->wwwroot   = 'https://<SEU_DOMINIO_OU_TUNNEL>';
 $CFG->dataroot  = '/var/moodledata';
 $CFG->admin     = 'admin';
 
@@ -438,8 +436,6 @@ require_once(__DIR__ . '/lib/setup.php');
 // There is no php closing tag in this file,
 // it is intentional because it prevents trailing whitespace problems!
 ```
-
-> ⚠️ Substitua `SuaSenhaSeguraAqui` pela senha real definida no PostgreSQL.
 
 ---
 
@@ -486,7 +482,7 @@ backend   = systemd
 banaction = firewallcmd-ipset
 ignoreip  = 127.0.0.1/8 ::1
 
-# Proteção SSH — bloqueia brute force
+# Proteção SSH — bloqueia tentativas de acesso repetidas
 [sshd]
 enabled  = true
 port     = ssh
@@ -501,7 +497,7 @@ logpath  = /var/log/nginx/error.log
 maxretry = 3
 backend  = auto
 
-# Scanners automáticos (Nikto, Dirbuster, sqlmap)
+# Proteção contra scanners e requisições automatizadas
 [nginx-botsearch]
 enabled  = true
 logpath  = /var/log/nginx/access.log
@@ -509,7 +505,7 @@ maxretry = 2
 bantime  = 12h
 backend  = auto
 
-# Rate limit — brute force web
+# Rate limit — limita requisições excessivas
 [nginx-limit-req]
 enabled  = true
 logpath  = /var/log/nginx/error.log
@@ -915,7 +911,7 @@ Possível evolução futura:
 10. Nginx: moodle.conf com otimização MP4 e parâmetros FastCGI
 11. PHP-FPM: usuário nginx + limites de upload (512M)
 12. Port Forwarding VirtualBox: 8080 → 80
-13. Assistente visual: http://127.0.0.1:8080
+13. Assistente visual: localhost:8080
 14. config.php manual com wwwroot + sslproxy
 15. Fail2ban: 4 jails (SSH + Nginx)
 16. Hardening SSH: MaxAuthTries, PermitRootLogin no
