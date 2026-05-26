@@ -147,6 +147,32 @@ vim /etc/keepalived/keepalived.conf
 
 ```nginx
 global_defs {
+    script_user root
+    enable_script_security
+}
+vrrp_script chk_haproxy {
+    script "/usr/bin/killall -0 haproxy" # widely used idiom
+    interval 2 # check every 2 seconds
+    weight 2 # add 2 points of prio if OK
+}
+vrrp_instance VI_1 {
+    interface enp1s0
+    state BACKUP # or "BACKUP" on backup 
+    priority 100 # 101 on master, 100 on backup
+    virtual_router_id 51
+    authentication {
+        auth_type PASS
+        auth_pass Xtr54sdD
+    }
+    virtual_ipaddress {
+        192.168.122.180
+    }
+    unicast_src_ip 192.168.122.174  # haproxy BACKUP 
+    unicast_peer { 192.168.122.173  # haproxy MASTER
+    }
+    track_script {
+        chk_haproxy
+    }
 }
 
 vrrp_script chk_haproxy {
@@ -191,6 +217,35 @@ vim /etc/keepalived/keepalived.conf
 
 ```nginx
 global_defs {
+
+    script_user root
+    enable_script_security
+}
+vrrp_script chk_haproxy {
+    script "/usr/bin/killall -0 haproxy" # widely used idiom
+    interval 2 # check every 2 seconds
+    weight 2 # add 2 points of prio if OK
+}
+vrrp_instance VI_1 {
+    interface enp1s0
+    state BACKUP # or "BACKUP" on backup 
+    priority 100 # 101 on master, 100 on backup
+    virtual_router_id 51
+    authentication {
+        auth_type PASS
+        auth_pass Xtr54sdD
+    }
+    virtual_ipaddress {
+        192.168.122.180
+    }
+    unicast_src_ip 192.168.122.174  # haproxy BACKUP 
+    unicast_peer { 192.168.122.173  # haproxy MASTER
+    }
+    track_script {
+        chk_haproxy
+    }
+}
+
 }
 
 vrrp_script chk_haproxy {
@@ -449,3 +504,67 @@ journalctl -u keepalived -f
 
 **Status:** Documento revisado, consistente e operacionalmente seguro para uso em laboratório ou produção controlada.
 Parte integrante do projeto [`brasill/moodle-linux-infrastructure-poc`](https://github.com/brasill/moodle-linux-infrastructure-poc).
+
+
+## Configuração de Segurança (SELinux)
+
+Para manter o sistema em modo `Enforcing`, é necessário ajustar as políticas de segurança para permitir que o HAProxy opere como balanceador de carga nas portas customizadas.
+
+### 1. Autorização de Portas de Escuta (Inbound)
+Define que o processo HAProxy tem permissão para realizar o bind nas portas de serviço e estatísticas:
+
+```bash
+semanage port -a -t http_port_t -p tcp 7000
+semanage port -a -t http_port_t -p tcp 5000
+semanage port -a -t http_port_t -p tcp 5001
+
+
+## Permissão de Conectividade de Rede (Outbound)
+Habilita a capacidade do HAProxy de encaminhar conexões para os backends (PostgreSQL/Patroni) em portas não padronizadas:
+
+```bash
+setsebool -P haproxy_connect_any 1
+
+***Nota de Segurança:*** Este boolean é necessário para que o HAProxy atue como um Proxy TCP/HTTP irrestrito, permitindo a comunicação com o cluster de banco de dados.
+
+
+
+---
+
+### 3. Analisando seu print: O erro `L4CON`
+
+No seu print do dashboard , note que todos os nós (`pgha1`, `pgha2`, `pgha3`) estão **vermelhos** com o erro **`L4CON in 71ms`**.
+
+**O que isso significa?**
+O HAProxy tentou abrir uma conexão TCP com os nós, mas a conexão foi rejeitada ou ignorada. 
+* **Se você ainda não rodou o `setsebool`:** É o SELinux bloqueando a saída do HAProxy.
+* **Se você já rodou o `setsebool`:** O firewall dos nós de banco (`pgha1`, `pgha2`, `pgha3`) está bloqueando as portas **5432** e **8008**.
+
+### 🛠️ O que fazer agora?
+Não desfaça os comandos ainda, pois eles são necessários para o fluxo funcionar. Mas para limpar as "bolinhas vermelhas" e deixar tudo verde para as entrevistas de amanhã, verifique se nos nós `pgha1, 2, 3` as portas estão liberadas:
+
+```bash
+# Execute nos nós pgha1, pgha2 e pgha3
+firewall-cmd --permanent --add-port=5432/tcp
+firewall-cmd --permanent --add-port=8008/tcp
+firewall-cmd --reload
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
