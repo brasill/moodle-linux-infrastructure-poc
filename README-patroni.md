@@ -1,4 +1,4 @@
-# Aula 4 - Configurando o servidor patroni
+# Configurando o servidor patroni
 
 ## ==========================================
 ## 1. PREPARAÇÃO (Executar no pgha1, pgha2 e pgha3 como ROOT)
