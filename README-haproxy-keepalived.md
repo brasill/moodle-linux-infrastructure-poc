@@ -549,11 +549,81 @@ firewall-cmd --permanent --add-port=5432/tcp
 firewall-cmd --permanent --add-port=8008/tcp
 firewall-cmd --reload
 
+## ==========================================
+## ACESSO AO PAINEL DE ESTATÍSTICAS (HAProxy Stats)
+## ==========================================
+
+# Para acessar o dashboard de monitoramento pelo navegador, é necessário liberar as portas no firewall do servidor proxy.
+# Execute no terminal do pgha-proxy (como root):
+
+firewall-cmd --add-port=7000/tcp --permanent
+firewall-cmd --add-port=5000/tcp --permanent
+firewall-cmd --add-port=5001/tcp --permanent
+firewall-cmd --reload
+
+# Após recarregar o firewall, acesse no navegador:
+# http://192.168.122.173:7000
+# (Ou o IP correspondente à interface enp1s0 do servidor Proxy)
 
 
 
+# HAProxy + Keepalived — Proxy de Alta Disponibilidade com VIP Failover
 
+> Este componente integra o stack de alta disponibilidade do repositório [`brasill/moodle-linux-infrastructure-poc`]([https://github.com/brasill/moodle-linux-infrastructure-poc](https://github.com/brasill/moodle-linux-infrastructure-poc)).
+> Implementa balanceamento de carga para o cluster PostgreSQL/Patroni com failover automático de IP virtual (VIP) via protocolo VRRP.
 
+---
+
+## Índice
+
+- [Visão Geral da Arquitetura](#visão-geral-da-arquitetura)
+- [Topologia](#topologia)
+- [Como Funciona o Failover](#como-funciona-o-failover)
+- [Pré-requisitos](#pré-requisitos)
+- [Etapa 1 — Instalação dos Pacotes](#etapa-1--instalação-dos-pacotes)
+- [Etapa 2 — Configuração do Keepalived](#etapa-2--configuração-do-keepalived)
+- [Etapa 3 — Configuração do HAProxy](#etapa-3--configuração-do-haproxy)
+- [Etapa 4 — Segurança (SELinux e Firewall)](#etapa-4--segurança-selinux-e-firewall)
+- [Etapa 5 — Ativação dos Serviços](#etapa-5--ativação-dos-serviços)
+- [Verificação e Validação](#verificação-e-validação)
+- [Troubleshooting](#troubleshooting)
+- [Boas Práticas SRE](#boas-práticas-sre)
+- [Referências Técnicas](#referências-técnicas)
+
+---
+
+## Visão Geral da Arquitetura
+
+Este lab utiliza dois serviços complementares para garantir alta disponibilidade na camada de acesso ao banco de dados:
+
+| Serviço      | Função                                                                                                 |
+|--------------|--------------------------------------------------------------------------------------------------------|
+| **Keepalived** | Gerencia o VIP (IP Virtual) entre os dois proxies via protocolo VRRP. Se o MASTER falhar, o BACKUP assume o VIP automaticamente em menos de 2 segundos. |
+| **HAProxy** | Recebe conexões no VIP e as distribui para os nós do cluster PostgreSQL/Patroni, separando tráfego de escrita (primário) e leitura (réplicas). |
+
+```text
+Clientes / Aplicações
+        │
+        ▼
+  192.168.122.180 (VIP — Keepalived)
+        │
+   ┌────┴────┐
+   │         │
+pghaproxy  pghaproxy2
+(MASTER)   (BACKUP)
+   │
+   ▼ HAProxy
+┌──────────────────────┐
+│  Porta 5000 → PRIMARY │  (escrita — Patroni /master)
+│  Porta 5001 → REPLICA │  (leitura — Patroni /replica)
+│  Porta 7000 → Stats   │  (dashboard HTTP)
+└──────────────────────┘
+        │
+   ┌────┼────┐
+   ▼    ▼    ▼
+ pgha1 pgha2 pgha3
+ :5432 :5432 :5432
+ (health check :8008 via Patroni REST API)
 
 
 
